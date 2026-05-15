@@ -1,0 +1,84 @@
+{
+  "name": "dk-vscode-llm-cache",
+  "displayName": "Mosquitodog LLM Cache",
+  "description": "Local semantic cache + memory proxy between VSCode LLM clients (Claude Code, Copilot Chat) and upstream providers. Boots a local mosquitodog-vscode binary and routes API calls through it.",
+  "version": "0.1.0",
+  "publisher": "doytsujin",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/doytsujin/dk-vscode-llm-cache.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0",
+    "node": ">=18"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Mosquitodog LLM Cache",
+      "properties": {
+        "mosquitodogLlmCache.binaryPath": {
+          "type": "string",
+          "default": "mosquitodog-vscode",
+          "description": "Path to the mosquitodog-vscode binary. Use bare name if it's on PATH; absolute path otherwise."
+        },
+        "mosquitodogLlmCache.port": {
+          "type": "number",
+          "default": 8765,
+          "description": "Port the local mosquitodog cache binds to (loopback only)."
+        },
+        "mosquitodogLlmCache.anthropicApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API key. Falls back to ANTHROPIC_API_KEY env var if unset. Stored as plaintext in settings — prefer the env var or the secret-store flow once available."
+        },
+        "mosquitodogLlmCache.anthropicModel": {
+          "type": "string",
+          "default": "claude-sonnet-4-6",
+          "description": "Anthropic model id passed as ANTHROPIC_MODEL to mosquitodog-vscode."
+        },
+        "mosquitodogLlmCache.exportBaseUrl": {
+          "type": "boolean",
+          "default": true,
+          "description": "Export ANTHROPIC_BASE_URL=http://127.0.0.1:<port> to integrated terminals so Claude Code routes through the cache."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "mosquitodogLlmCache.health",
+        "title": "Mosquitodog: Check Cache Health"
+      },
+      {
+        "command": "mosquitodogLlmCache.restart",
+        "title": "Mosquitodog: Restart Cache"
+      },
+      {
+        "command": "mosquitodogLlmCache.showOutput",
+        "title": "Mosquitodog: Show Cache Output"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "watch": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --watch",
+    "compile": "tsc -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^2.27.0",
+    "esbuild": "^0.21.0",
+    "typescript": "^5.4.0"
+  }
+}
