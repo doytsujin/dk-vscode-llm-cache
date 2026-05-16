@@ -10,7 +10,7 @@ design](https://github.com/doytsujin/dk-ecosystem/blob/main/revisions/v0.1.0/src
 
 ## What it does
 
-**Tier 1 (this build):**
+**Tier 1**: terminal-side routing.
 1. Spawns the `mosquitodog-vscode` binary as a child process bound to
    `127.0.0.1:<port>`.
 2. Sets `ANTHROPIC_BASE_URL=http://127.0.0.1:<port>` for every
@@ -18,10 +18,19 @@ design](https://github.com/doytsujin/dk-ecosystem/blob/main/revisions/v0.1.0/src
    the terminal routes through the cache transparently.
 3. Surfaces health, restart, and output commands.
 
-**Tier 2 (deferred):** registering as a
-`vscode.lm.ChatModelProvider` so Copilot Chat can route to the cache.
-Pending stabilisation of the proposed VSCode LM API for the target
-version. See `TODO(phase-3-tier-2)` in `src/extension.ts`.
+**Tier 2**: VSCode LM API integration.
+Registers as a `vscode.lm.LanguageModelChatProvider` (vendor
+`mosquitodog-cache`) so Copilot Chat — and any extension calling
+`vscode.lm.selectChatModels` — can pick the cached model from the
+chat UI. Provider hits the gateway's OpenAI frontend
+(`/v1/chat/completions` with `stream=true`), parses the SSE chunks,
+and forwards them to VSCode's `progress.report()` API for streaming
+display.
+
+Requires VSCode 1.95+ (where `registerLanguageModelChatProvider` is
+in the stable API). Tool calling and image input are flagged as
+unsupported in `capabilities` — Phase 9b's frontends drop both to
+text today.
 
 ## Setup
 
@@ -68,5 +77,10 @@ version. See `TODO(phase-3-tier-2)` in `src/extension.ts`.
 ## Status
 
 - Tier 1 wired and tested via the binary smoke test.
-- Tier 2 (Chat Model Provider for Copilot Chat) deferred.
-- Cross-session memory layer lands in Phase 4 of the parent design.
+- Tier 2 (Chat Model Provider for Copilot Chat) wired against
+  `@types/vscode` 1.120 stable API (`registerLanguageModelChatProvider`).
+  Requires VSCode 1.95+. Smoke-tested via `tsc` strict typecheck +
+  esbuild bundle; live behaviour verification needs a real VSCode
+  session.
+- Cross-session memory layer landed in Phase 4 of the parent design;
+  real SQLite persistence in Phase 7a; Semantic Link envelope in 7b.

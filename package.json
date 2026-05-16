@@ -10,7 +10,7 @@
     "url": "https://github.com/doytsujin/dk-vscode-llm-cache.git"
   },
   "engines": {
-    "vscode": "^1.90.0",
+    "vscode": "^1.95.0",
     "node": ">=18"
   },
   "categories": [
@@ -65,6 +65,13 @@
         "command": "mosquitodogLlmCache.showOutput",
         "title": "Mosquitodog: Show Cache Output"
       }
+    ],
+    "languageModelChatProviders": [
+      {
+        "vendor": "mosquitodog-cache",
+        "displayName": "Mosquitodog Cache",
+        "managementCommand": "mosquitodogLlmCache.health"
+      }
     ]
   },
   "scripts": {
@@ -76,7 +83,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "@types/vscode": "^1.90.0",
+    "@types/vscode": "^1.95.0",
     "@vscode/vsce": "^2.27.0",
     "esbuild": "^0.21.0",
     "typescript": "^5.4.0"

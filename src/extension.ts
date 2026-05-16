@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { GatewayProcess } from './gateway';
+import { MosquitodogChatProvider } from './chat-provider';
 
 let gateway: GatewayProcess | undefined;
 
@@ -75,14 +76,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
     );
 
-    // Tier 2 — register as a Language Model Chat Provider so Copilot Chat
-    // and other consumers of `vscode.lm.*` can route through the cache.
-    // The proposed API shape (`registerChatModelProvider` / `LanguageModelChatProvider`)
-    // is still settling across VSCode versions; wiring it requires
-    // `enableProposedApi` in package.json and a per-target VSCode build.
-    // Tracked separately so this Tier-1 build remains stable on stock VSCode.
-    // TODO(phase-3-tier-2): land Chat Model Provider once the API
-    // stabilises in the user's target VSCode version.
+    // Tier 2 — register as a Language Model Chat Provider so Copilot
+    // Chat and any extension calling `vscode.lm.selectChatModels` can
+    // route through the cache. Stable in @types/vscode 1.95+; the
+    // package.json `engines.vscode` and `contributes.languageModelChatProviders`
+    // declare the dependency.
+    const provider = new MosquitodogChatProvider({
+        port,
+        family: anthropicModel,
+    });
+    try {
+        const disposable = vscode.lm.registerLanguageModelChatProvider(
+            'mosquitodog-cache',
+            provider,
+        );
+        context.subscriptions.push(disposable);
+        vscode.window.setStatusBarMessage(
+            `$(check) Mosquitodog: Chat provider registered (${anthropicModel})`,
+            5_000,
+        );
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        vscode.window.showWarningMessage(
+            `Mosquitodog Chat Provider registration failed (${msg}). Tier-1 ` +
+            `(ANTHROPIC_BASE_URL export) still works.`,
+        );
+    }
 }
 
 export async function deactivate(): Promise<void> {
