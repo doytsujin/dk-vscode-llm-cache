@@ -1,0 +1,48 @@
+name: Test
+
+# Typecheck + build on every push to main and every PR.
+# Three-OS matrix so platform-specific Node / npm regressions don't
+# slip in invisibly.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: typecheck + build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-fund --no-audit
+
+      - name: TypeScript typecheck (strict)
+        run: npx tsc --noEmit
+
+      - name: Build extension bundle
+        run: npm run build
+
+      - name: Verify bundle exists
+        shell: bash
+        run: |
+          test -f out/extension.js
+          ls -la out/
