@@ -81,9 +81,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // route through the cache. Stable in @types/vscode 1.95+; the
     // package.json `engines.vscode` and `contributes.languageModelChatProviders`
     // declare the dependency.
+    const exposeBypassModel = config.get<boolean>('exposeBypassModel') ?? true;
     const provider = new MosquitodogChatProvider({
         port,
         family: anthropicModel,
+        exposeBypassModel,
     });
     try {
         const disposable = vscode.lm.registerLanguageModelChatProvider(

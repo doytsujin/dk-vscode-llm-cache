@@ -27,6 +27,13 @@ chat UI. Provider hits the gateway's OpenAI frontend
 and forwards them to VSCode's `progress.report()` API for streaming
 display.
 
+The provider advertises **two models** by default:
+- `<family> (cached)` — normal: cache hit if available, else upstream.
+- `<family> (no cache)` — bypass: skip both exact + semantic cache
+  for the turn. One-click escape from a wrong-cache hit. Hide via
+  `mosquitodogLlmCache.exposeBypassModel: false` if you want a
+  single entry in the model picker.
+
 Requires VSCode 1.95+ (where `registerLanguageModelChatProvider` is
 in the stable API). Tool calling and image input are flagged as
 unsupported in `capabilities` — Phase 9b's frontends drop both to
@@ -67,6 +74,7 @@ text today.
 | `mosquitodogLlmCache.anthropicApiKey` | `""` | falls back to env var |
 | `mosquitodogLlmCache.anthropicModel` | `claude-sonnet-4-6` | passed as `ANTHROPIC_MODEL` |
 | `mosquitodogLlmCache.exportBaseUrl` | `true` | set `ANTHROPIC_BASE_URL` in terminals |
+| `mosquitodogLlmCache.exposeBypassModel` | `true` | advertise `<family> (no cache)` variant in chat model picker |
 
 ## Commands
 

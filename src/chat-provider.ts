@@ -17,7 +17,17 @@ interface ProviderConfig {
     port: number;
     /** Family + display name used to advertise the model in the chat UI. */
     family: string;
+    /**
+     * If true, advertise a second model variant `<family> (no cache)`
+     * that bypasses the cache for every request (sets
+     * `cache.mode = "bypass"`). Lets users escape a wrong-cache hit
+     * without leaving the chat UI: pick the bypass model from the
+     * Copilot Chat dropdown for the next turn.
+     */
+    exposeBypassModel: boolean;
 }
+
+const BYPASS_SUFFIX = '-bypass';
 
 export class MosquitodogChatProvider
     implements vscode.LanguageModelChatProvider<vscode.LanguageModelChatInformation>
@@ -25,34 +35,55 @@ export class MosquitodogChatProvider
     constructor(private readonly config: ProviderConfig) {}
 
     /**
-     * Advertise the single model this provider exposes. The gateway is
-     * configured at boot with one upstream backend (typically Anthropic
-     * via target-vscode), and that's what every request will hit.
+     * Advertise the gateway-backed model. When `exposeBypassModel` is
+     * enabled, also advertises a `<family> (no cache)` variant whose
+     * id ends in `-bypass`; `provideLanguageModelChatResponse`
+     * detects the suffix and forces `cache.mode = "bypass"` for those
+     * calls, so users have a one-click escape from wrong-cache hits
+     * without restarting the gateway or toggling a global setting.
      */
     async provideLanguageModelChatInformation(
         _options: vscode.PrepareLanguageModelChatModelOptions,
         _token: vscode.CancellationToken,
     ): Promise<vscode.LanguageModelChatInformation[]> {
-        return [
-            {
-                id: `mosquitodog-cache-${this.config.family}`,
-                name: `${this.config.family} (cached)`,
-                family: this.config.family,
-                tooltip:
-                    'Routed through the local mosquitodog cache — semantic + memory-aware. ' +
-                    'See Mosquitodog: Show Cache Output for details.',
-                version: '1',
-                maxInputTokens: 200_000,
-                maxOutputTokens: 8_192,
-                capabilities: {
-                    // Tool / image input flow through the cache only as
-                    // text today (Phase 9b's frontends drop them); flag
-                    // honestly so chat hosts don't try to use them.
-                    imageInput: false,
-                    toolCalling: false,
-                },
+        const baseId = `mosquitodog-cache-${this.config.family}`;
+        const cached: vscode.LanguageModelChatInformation = {
+            id: baseId,
+            name: `${this.config.family} (cached)`,
+            family: this.config.family,
+            tooltip:
+                'Routed through the local mosquitodog cache — semantic + memory-aware. ' +
+                'See Mosquitodog: Show Cache Output for details.',
+            version: '1',
+            maxInputTokens: 200_000,
+            maxOutputTokens: 8_192,
+            capabilities: {
+                // Tool / image input flow through the cache only as
+                // text today (Phase 9b's frontends drop them); flag
+                // honestly so chat hosts don't try to use them.
+                imageInput: false,
+                toolCalling: false,
             },
-        ];
+        };
+        if (!this.config.exposeBypassModel) {
+            return [cached];
+        }
+        const bypass: vscode.LanguageModelChatInformation = {
+            id: `${baseId}${BYPASS_SUFFIX}`,
+            name: `${this.config.family} (no cache)`,
+            family: this.config.family,
+            tooltip:
+                'Same upstream model, but skips both the exact + semantic cache for this turn. ' +
+                'Pick this if a previous response looked stale or wrong.',
+            version: '1',
+            maxInputTokens: 200_000,
+            maxOutputTokens: 8_192,
+            capabilities: {
+                imageInput: false,
+                toolCalling: false,
+            },
+        };
+        return [cached, bypass];
     }
 
     async provideLanguageModelChatResponse(
@@ -67,11 +98,18 @@ export class MosquitodogChatProvider
             content: messageText(m),
         }));
 
-        const body = {
+        const bypassCache = model.id.endsWith(BYPASS_SUFFIX);
+        const body: Record<string, unknown> = {
             model: model.family,
             messages: openAiMessages,
             stream: true,
         };
+        if (bypassCache) {
+            // mosquitodog ext: skip both exact + semantic cache for this
+            // turn. The frontend's translate_request honours this and
+            // sets ChatRequest.cache_options.mode = "bypass".
+            body._mosquitodog = { cache: { mode: 'bypass' } };
+        }
 
         const url = `http://127.0.0.1:${this.config.port}/v1/chat/completions`;
         const controller = new AbortController();

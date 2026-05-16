@@ -49,6 +49,11 @@
           "type": "boolean",
           "default": true,
           "description": "Export ANTHROPIC_BASE_URL=http://127.0.0.1:<port> to integrated terminals so Claude Code routes through the cache."
+        },
+        "mosquitodogLlmCache.exposeBypassModel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Advertise a second '<family> (no cache)' model in the Copilot Chat picker that bypasses the cache for that turn. One-click escape from a wrong-cache hit; turn off to declutter the model list."
         }
       }
     },
