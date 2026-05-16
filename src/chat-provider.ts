@@ -25,6 +25,15 @@ interface ProviderConfig {
      * Copilot Chat dropdown for the next turn.
      */
     exposeBypassModel: boolean;
+    /**
+     * If true, attach a per-request fingerprint of open editor files
+     * via `_mosquitodog.file_context`. The gateway folds this into
+     * the cache key, so editing a referenced file busts the cache
+     * automatically. Uses `document.version` (per-session monotonic
+     * counter) — sufficient for in-session invalidation, doesn't
+     * catch edits made while VSCode was closed.
+     */
+    includeFileContext: boolean;
 }
 
 const BYPASS_SUFFIX = '-bypass';
@@ -99,16 +108,31 @@ export class MosquitodogChatProvider
         }));
 
         const bypassCache = model.id.endsWith(BYPASS_SUFFIX);
+        const fileContext = this.config.includeFileContext
+            ? collectFileContext()
+            : [];
+
+        const mosquitodogExt: Record<string, unknown> = {};
+        if (bypassCache) {
+            // mosquitodog ext: skip both exact + semantic cache for this
+            // turn. The frontend's translate_request honours this and
+            // sets ChatRequest.cache_options.mode = "bypass".
+            mosquitodogExt.cache = { mode: 'bypass' };
+        }
+        if (fileContext.length > 0) {
+            // Phase 1.5: gateway folds these (path, fingerprint) pairs
+            // into the cache key — same prompt + edited file → cache
+            // miss → fresh upstream call.
+            mosquitodogExt.file_context = fileContext;
+        }
+
         const body: Record<string, unknown> = {
             model: model.family,
             messages: openAiMessages,
             stream: true,
         };
-        if (bypassCache) {
-            // mosquitodog ext: skip both exact + semantic cache for this
-            // turn. The frontend's translate_request honours this and
-            // sets ChatRequest.cache_options.mode = "bypass".
-            body._mosquitodog = { cache: { mode: 'bypass' } };
+        if (Object.keys(mosquitodogExt).length > 0) {
+            body._mosquitodog = mosquitodogExt;
         }
 
         const url = `http://127.0.0.1:${this.config.port}/v1/chat/completions`;
@@ -221,4 +245,30 @@ function messageText(m: vscode.LanguageModelChatRequestMessage): string {
     return m.content
         .map((p) => (p instanceof vscode.LanguageModelTextPart ? p.value : ''))
         .join('');
+}
+
+/**
+ * Collect a per-request file fingerprint from currently open editor
+ * documents. Schema matches `mosquitodog_server::FileContext`:
+ * `[{path, fingerprint}]`. Skips untitled buffers and non-file URIs
+ * (e.g. settings, output channels).
+ *
+ * Fingerprint is `v<document.version>` — a per-session monotonic
+ * counter that increments on every edit. Cheap (no fs.statSync per
+ * file), correct for in-session invalidation. Cross-session edits
+ * (file changed while VSCode was closed) are not caught — would need
+ * an mtime/content-hash signal, parked for a follow-up.
+ */
+function collectFileContext(): Array<{ path: string; fingerprint: string }> {
+    const out: Array<{ path: string; fingerprint: string }> = [];
+    for (const doc of vscode.workspace.textDocuments) {
+        if (doc.uri.scheme !== 'file' || doc.isUntitled) {
+            continue;
+        }
+        out.push({
+            path: doc.uri.fsPath,
+            fingerprint: `v${doc.version}`,
+        });
+    }
+    return out;
 }

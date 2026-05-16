@@ -75,6 +75,7 @@ text today.
 | `mosquitodogLlmCache.anthropicModel` | `claude-sonnet-4-6` | passed as `ANTHROPIC_MODEL` |
 | `mosquitodogLlmCache.exportBaseUrl` | `true` | set `ANTHROPIC_BASE_URL` in terminals |
 | `mosquitodogLlmCache.exposeBypassModel` | `true` | advertise `<family> (no cache)` variant in chat model picker |
+| `mosquitodogLlmCache.includeFileContext` | `true` | send open-editor fingerprint with each chat request so file edits bust the cache |
 
 ## Commands
 

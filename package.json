@@ -54,6 +54,11 @@
           "type": "boolean",
           "default": true,
           "description": "Advertise a second '<family> (no cache)' model in the Copilot Chat picker that bypasses the cache for that turn. One-click escape from a wrong-cache hit; turn off to declutter the model list."
+        },
+        "mosquitodogLlmCache.includeFileContext": {
+          "type": "boolean",
+          "default": true,
+          "description": "Send a fingerprint of currently open editor files with each chat request so the cache busts when a referenced file is edited in this VSCode session. Uses document.version (per-session monotonic counter) — does not catch edits made while VSCode was closed."
         }
       }
     },
